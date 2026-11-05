@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RSA Investigator</title>
+
+  <style>
+    /* All styling is local: no external libraries or internet connection needed. */
+    :root {
+      color-scheme: light;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+      color: #172033;
+      background: #f3f5f8;
+    }
+
+    * { box-sizing: border-box; }
+
+    body { margin: 0; }
+
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 20px 60px;
+    }
+
+    h1, h2, h3 { line-height: 1.2; }
+    h1 { margin-bottom: 10px; }
+    h2 { margin-top: 0; font-size: 1.35rem; }
+    h3 { font-size: 1.05rem; }
+
+    p { margin: 10px 0; }
+
+    .muted, .help {
+      color: #526078;
+      font-size: 0.94rem;
+    }
+
+    .card {
+      margin-top: 24px;
+      padding: 24px;
+      background: white;
+      border: 1px solid #dce2eb;
+      border-radius: 12px;
+    }
+
+    fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+
+    input, select, textarea, button {
+      font: inherit;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #aab5c7;
+      border-radius: 6px;
+      background: white;
+      color: #172033;
+    }
+
+    textarea { resize: vertical; }
+
+    input:focus, select:focus, textarea:focus, button:focus-visible {
+      outline: 3px solid #a8c9ff;
+      outline-offset: 2px;
+    }
+
+    .field { margin-bottom: 20px; }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    button {
+      padding: 10px 16px;
+      border: 1px solid #2259b5;
+      border-radius: 6px;
+      background: #2259b5;
+      color: white;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: white;
+      color: #2259b5;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    #status { min-height: 1.5em; }
+    #status.error { color: #a32020; }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    .metric {
+      background: #f3f6fb;
+      padding: 16px;
+      border-radius: 8px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 1.4rem;
+      margin-top: 4px;
+    }
+
+    .configuration {
+      display: grid;
+      grid-template-columns: max-content minmax(0, 1fr);
+      gap: 5px 16px;
+    }
+
+    .configuration dt { font-weight: 600; }
+    .configuration dd { margin: 0; overflow-wrap: anywhere; }
+
+    .table-wrap {
+      overflow-x: auto;
+      margin-top: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-variant-numeric: tabular-nums;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #e1e6ee;
+      white-space: nowrap;
+    }
+
+    th { background: #f3f6fb; }
+
+    .match { color: #16653d; }
+    .mismatch { color: #a32020; font-weight: 600; }
+
+    code {
+      background: #edf1f7;
+      padding: 2px 5px;
+      border-radius: 4px;
+    }
+
+    [hidden] { display: none !important; }
+
+    @media (max-width: 700px) {
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .metrics { grid-template-columns: 1fr; }
+      .card { padding: 18px; }
+    }
+  </style>
+</head>
+
+<body>
+<main>
+  <header>
+    <h1>RSA Investigator</h1>
+    <p>
+      Choose key values, predict what will happen, then examine the results.
+      Use this application to collect evidence for your RSA investigation.
+    </p>
+    <p class="muted">
+      This is a textbook RSA teaching tool using small numbers.
+      Successful message recovery does not establish practical security.
+      Calculations run locally in your browser.
+    </p>
+  </header>
+
+  <section class="card" aria-labelledby="setup-heading">
+    <h2 id="setup-heading">Configure an experiment</h2>
+
+    <form id="experiment-form">
+      <fieldset id="experiment-controls">
+        <div class="grid">
+          <div>
+            <label for="prime-p">First prime: p</label>
+            <input id="prime-p" type="text" inputmode="numeric"
+                   value="5" maxlength="5" required>
+          </div>
+
+          <div>
+            <label for="prime-q">Second prime: q</label>
+            <input id="prime-q" type="text" inputmode="numeric"
+                   value="11" maxlength="5" required>
+          </div>
+
+          <div>
+            <label for="exponent-e">Public exponent: e</label>
+            <input id="exponent-e" type="text" inputmode="numeric"
+                   value="3" maxlength="100" required>
+          </div>
+
+          <div>
+            <label for="exponent-d">Private exponent: d</label>
+            <input id="exponent-d" type="text" inputmode="numeric"
+                   value="27" maxlength="100" required>
+          </div>
+        </div>
+
+        <p class="help">
+          Use distinct primes. The application calculates n = p × q and
+          φ(n) = (p − 1) × (q − 1).
+          The modulus n must not exceed 10,000.
+        </p>
+        <p class="help">
+          Enter positive whole numbers for e and d.
+          The application allows exponent choices that may fail to recover
+          messages, so you can investigate their behaviour.
+        </p>
+
+        <div class="field">
+          <label for="experiment-label">Experiment label (optional)</label>
+          <input id="experiment-label" type="text" maxlength="120"
+                 placeholder="For example: Baseline or Claim one – test A">
+        </div>
+
+        <div class="field">
+          <label for="test-mode">Messages to test</label>
+          <select id="test-mode">
+            <option value="selected">Selected messages</option>
+            <option value="all">Every permitted message: 0 to n − 1</option>
+          </select>
+        </div>
+
+        <div class="field" id="selected-messages-field">
+          <label for="messages">Selected messages</label>
+          <textarea id="messages" rows="3" maxlength="20000"
+                    aria-describedby="messages-help">0, 1, 7, 10, 54</textarea>
+          <p class="help" id="messages-help">
+            Separate whole numbers with commas, spaces or new lines.
+            Each must be between 0 and n − 1.
+            Enter each message once, up to 1,000 messages per selected test.
+            Update this list when changing the modulus.
+          </p>
+        </div>
+
+        <button type="submit">Run experiment</button>
+      </fieldset>
+    </form>
+
+    <p id="status" role="status" aria-live="polite"></p>
+  </section>
+
+  <section id="results" class="card" aria-labelledby="results-heading" hidden>
+    <h2 id="results-heading">Experiment results</h2>
+    <p class="muted">
+      These results belong to the configuration recorded below.
+      Editing the form does not change an existing result.
+      Download the CSV before running another experiment if you wish to retain it.
+    </p>
+
+    <dl id="configuration" class="configuration"></dl>
+
+    <div class="metrics">
+      <div class="metric">
+        Messages tested
+        <strong id="tested-count"></strong>
+      </div>
+      <div class="metric">
+        Messages recovered correctly
+        <strong id="recovered-count"></strong>
+      </div>
+      <div class="metric">
+        Distinct ciphertexts among tested messages
+        <strong id="ciphertext-count"></strong>
+      </div>
+    </div>
+
+    <p class="help">
+      Counts describe this experiment. Interpret them alongside the key values,
+      the messages tested and the scope of your claim.
+    </p>
+
+    <h3>Ciphertext collisions</h3>
+    <p id="collision-summary"></p>
+    <p class="help">
+      A collision occurs when different tested messages produce the same ciphertext.
+      The examples below show up to ten such pairs.
+    </p>
+
+    <div id="collision-table-wrap" class="table-wrap" hidden>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">First message</th>
+            <th scope="col">Other message</th>
+            <th scope="col">Shared ciphertext</th>
+          </tr>
+        </thead>
+        <tbody id="collision-rows"></tbody>
+      </table>
+    </div>
+
+    <h3>Message results</h3>
+    <p class="help">
+      Encryption: c = m<sup>e</sup> mod n.
+      Decryption: recovered message = c<sup>d</sup> mod n.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Original message</th>
+            <th scope="col">Ciphertext</th>
+            <th scope="col">Recovered message</th>
+            <th scope="col">Matches original?</th>
+          </tr>
+        </thead>
+        <tbody id="message-rows"></tbody>
+      </table>
+    </div>
+
+    <div class="actions">
+      <button id="previous-page" type="button" class="secondary">Previous</button>
+      <span id="page-description" aria-live="polite"></span>
+      <button id="next-page" type="button" class="secondary">Next</button>
+    </div>
+
+    <div class="actions">
+      <button id="download-csv" type="button">Download all results as CSV</button>
+    </div>
+    <p class="help">
+      The CSV contains every tested message, including rows on other pages,
+      together with the key configuration and experiment label.
+      Results are not saved automatically.
+    </p>
+  </section>
+</main>
+
+<script>
+"use strict";
+
+/*
+ * RSA INVESTIGATOR
+ *
+ * Students supply p, q, e and d. This application:
+ *   1. Checks that p and q are small, distinct primes.
+ *   2. Calculates n and the totient.
+ *   3. Encrypts and decrypts the chosen messages.
+ *   4. Records recovery results and repeated ciphertexts.
+ *   5. Exports the complete experiment as CSV.
+ *
+ * It intentionally does NOT reject e or d for failing RSA key relationships.
+ * Testing such values is part of the extension exercise.
+ *
+ * BigInt is used for mathematical values so calculations remain exact.
+ * Number is used only for bounded array indices, counts and pagination.
+ */
+
+// ---------- Limits and application state ----------
+
+const MAX_MODULUS = 10000n;
+const MAX_EXPONENT_DIGITS = 100;
+const MAX_SELECTED_MESSAGES = 1000;
+const PAGE_SIZE = 100;
+const MAX_COLLISION_EXAMPLES = 10;
+
+// A completed run is stored independently of the editable input fields.
+let currentRun = null;
+let currentPage = 0;
+let running = false;
+
+const form = document.getElementById("experiment-form");
+const controls = document.getElementById("experiment-controls");
+const status = document.getElementById("status");
+const resultsSection = document.getElementById("results");
+const modeInput = document.getElementById("test-mode");
+
+// ---------- Input validation ----------
+
+/*
+ * Read decimal digits directly as BigInt.
+ *
+ * Using Number first could lose precision for large exponent values.
+ * Signs, decimal points and scientific notation are deliberately rejected.
+ */
+function readInteger(id, name, maxDigits) {
+  const text = document.getElementById(id).value.trim();
+
+  if (!/^[0-9]+$/.test(text)) {
+    throw new Error(`${name} must contain whole-number decimal digits only.`);
+  }
+
+  if (text.length > maxDigits) {
+    throw new Error(`${name} must contain no more than ${maxDigits} digits.`);
+  }
+
+  return BigInt(text);
+}
+
+/*
+ * Trial division is sufficient here because the application only accepts
+ * small teaching inputs. This is not a generator for cryptographic primes.
+ */
+function isPrime(value) {
+  if (value < 2n) return false;
+  if (value === 2n) return true;
+  if (value % 2n === 0n) return false;
+
+  for (let divisor = 3n; divisor * divisor <= value; divisor += 2n) {
+    if (value % divisor === 0n) return false;
+  }
+
+  return true;
+}
+
+/*
+ * Capture a configuration before starting a run.
+ * This snapshot is also used for the results display and CSV export.
+ */
+function readConfiguration() {
+  const p = readInteger("prime-p", "p", 5);
+  const q = readInteger("prime-q", "q", 5);
+  const e = readInteger("exponent-e", "e", MAX_EXPONENT_DIGITS);
+  const d = readInteger("exponent-d", "d", MAX_EXPONENT_DIGITS);
+
+  if (p < 2n || q < 2n || p > MAX_MODULUS || q > MAX_MODULUS) {
+    throw new Error("Choose primes between 2 and 10,000.");
+  }
+
+  if (!isPrime(p) || !isPrime(q)) {
+    throw new Error("Both p and q must be prime.");
+  }
+
+  if (p === q) {
+    throw new Error("Choose two different primes.");
+  }
+
+  const n = p * q;
+  const totient = (p - 1n) * (q - 1n);
+
+  if (n > MAX_MODULUS) {
+    throw new Error(`p × q is ${n}. Choose smaller primes so n is at most 10,000.`);
+  }
+
+  if (e < 1n || d < 1n) {
+    throw new Error("e and d must both be positive whole numbers.");
+  }
+
+  /*
+   * Do not require gcd(e, totient) = 1 here.
+   * Do not require e*d mod totient = 1 here.
+   * Do not require d < totient.
+   *
+   * Those restrictions would prevent experiments required by the task.
+   * In addition, the usual totient-based construction is not a complete
+   * classification of every exponent that can successfully decrypt.
+   */
+  return {
+    p,
+    q,
+    n,
+    totient,
+    e,
+    d,
+    mode: modeInput.value,
+    label: document.getElementById("experiment-label").value.trim()
+  };
+}
+
+function readMessages(config) {
+  if (config.mode === "all") {
+    // Conversion is safe because n has already been limited to 10,000.
+    return Array.from({ length: Number(config.n) }, (_, index) => BigInt(index));
+  }
+
+  const text = document.getElementById("messages").value.trim();
+
+  if (!text) {
+    throw new Error("Enter at least one message.");
+  }
+
+  const tokens = text.split(/[\s,]+/).filter(Boolean);
+
+  if (tokens.length > MAX_SELECTED_MESSAGES) {
+    throw new Error("Use at most 1,000 selected messages, or select the complete range.");
+  }
+
+  const messages = [];
+  const seen = new Set();
+
+  for (const token of tokens) {
+    if (!/^[0-9]+$/.test(token) || token.length > 5) {
+      throw new Error("Messages must be small, non-negative whole numbers.");
+    }
+
+    const message = BigInt(token);
+
+    if (message >= config.n) {
+      throw new Error(`Message ${message} is outside the range 0 to ${config.n - 1n}.`);
+    }
+
+    // Normalising through BigInt also treats "01" and "1" as duplicates.
+    const key = message.toString();
+
+    if (seen.has(key)) {
+      throw new Error(`Message ${message} appears more than once. Enter each message once.`);
+    }
+
+    seen.add(key);
+    messages.push(message);
+  }
+
+  return messages;
+}
+
+// ---------- RSA arithmetic ----------
+
+/*
+ * Calculate base^exponent mod modulus using repeated squaring.
+ *
+ * We reduce intermediate products modulo n, avoiding the enormous integer
+ * that would result from calculating base^exponent directly.
+ *
+ * Each pass examines one binary digit of the exponent:
+ *   - If the exponent is odd, multiply the accumulated result by the base.
+ *   - Halve the exponent, discarding the remainder.
+ *   - Square the base for the next pass.
+ *
+ * All operands here are BigInt values.
+ */
+function modPow(base, exponent, modulus) {
+  let result = 1n;
+  base %= modulus;
+
+  while (exponent > 0n) {
+    if (exponent % 2n === 1n) {
+      result = (result * base) % modulus;
+    }
+
+    exponent /= 2n;
+    base = (base * base) % modulus;
+  }
+
+  return result;
+}
+
+// ---------- Running an experiment ----------
+
+function setStatus(message, isError = false) {
+  status.textContent = message;
+  status.classList.toggle("error", isError);
+}
+
+/*
+ * Yield periodically so the browser can update the progress message.
+ * The application records mathematical behaviour, not performance timings.
+ */
+function letBrowserUpdate() {
+  return new Promise(resolve => setTimeout(resolve, 0));
+}
+
+async function runExperiment(event) {
+  event.preventDefault();
+  if (running) return;
+
+  let config;
+  let messages;
+
+  try {
+    config = readConfiguration();
+    messages = readMessages(config);
+  } catch (error) {
+    const reminder = currentRun
+      ? " The previous experiment remains displayed below."
+      : "";
+    setStatus(error.message + reminder, true);
+    return;
+  }
+
+  running = true;
+  controls.disabled = true;
+
+  // A new valid run replaces the previous in-memory experiment.
+  currentRun = null;
+  resultsSection.hidden = true;
+
+  const run = {
+    id: `run-${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    config,
+    rows: [],
+    recoveredCount: 0,
+    distinctCiphertexts: 0,
+    collisionGroups: 0,
+    collisionExamples: []
+  };
+
+  /*
+   * For each ciphertext, remember the first message that produced it and
+   * how many different tested messages have produced it.
+   */
+  const ciphertexts = new Map();
+
+  try {
+    setStatus(`Testing ${messages.length.toLocaleString()} messages…`);
+    await letBrowserUpdate();
+
+    for (let index = 0; index < messages.length; index++) {
+      const message = messages[index];
+      const ciphertext = modPow(message, config.e, config.n);
+      const recovered = modPow(ciphertext, config.d, config.n);
+      const matches = recovered === message;
+
+      run.rows.push({ message, ciphertext, recovered, matches });
+
+      if (matches) run.recoveredCount++;
+
+      const key = ciphertext.toString();
+      const existing = ciphertexts.get(key);
+
+      if (existing) {
+        existing.count++;
+
+        // Count each shared ciphertext group once, when its second message appears.
+        if (existing.count === 2) run.collisionGroups++;
+
+        if (run.collisionExamples.length < MAX_COLLISION_EXAMPLES) {
+          run.collisionExamples.push({
+            firstMessage: existing.firstMessage,
+            otherMessage: message,
+            ciphertext
+          });
+        }
+      } else {
+        ciphertexts.set(key, { firstMessage: message, count: 1 });
+      }
+
+      if ((index + 1) % 100 === 0) {
+        setStatus(
+          `Tested ${(index + 1).toLocaleString()} of ${messages.length.toLocaleString()} messages…`
+        );
+        await letBrowserUpdate();
+      }
+    }
+
+    run.distinctCiphertexts = ciphertexts.size;
+    currentRun = run;
+    currentPage = 0;
+
+    renderResults();
+    setStatus("Experiment complete. Download the CSV to retain these results.");
+  } catch (error) {
+    setStatus(`The experiment could not be completed: ${error.message}`, true);
+  } finally {
+    running = false;
+    controls.disabled = false;
+  }
+}
+
+// ---------- Displaying results ----------
+
+/*
+ * User-entered labels and all result values are inserted with textContent.
+ * They are never interpreted as HTML.
+ */
+function addDefinition(container, term, value) {
+  const dt = document.createElement("dt");
+  const dd = document.createElement("dd");
+  dt.textContent = term;
+  dd.textContent = String(value);
+  container.append(dt, dd);
+}
+
+function addCell(row, value, className = "") {
+  const cell = document.createElement("td");
+  cell.textContent = String(value);
+  if (className) cell.className = className;
+  row.appendChild(cell);
+}
+
+function renderResults() {
+  const run = currentRun;
+  const config = run.config;
+  const configuration = document.getElementById("configuration");
+
+  configuration.replaceChildren();
+
+  addDefinition(configuration, "Experiment", config.label || "Unlabelled");
+  addDefinition(configuration, "Run ID", run.id);
+  addDefinition(configuration, "Started (UTC)", run.timestamp);
+  addDefinition(configuration, "Primes", `p = ${config.p}; q = ${config.q}`);
+  addDefinition(configuration, "Modulus", `n = ${config.n}`);
+  addDefinition(configuration, "Totient", `φ(n) = ${config.totient}`);
+  addDefinition(configuration, "Exponents", `e = ${config.e}; d = ${config.d}`);
+  addDefinition(
+    configuration,
+    "Messages",
+    config.mode === "all"
+      ? `Complete range: 0 to ${config.n - 1n}`
+      : "Selected messages"
+  );
+
+  document.getElementById("tested-count").textContent =
+    run.rows.length.toLocaleString();
+
+  const percentage = (100 * run.recoveredCount / run.rows.length).toFixed(2);
+
+  document.getElementById("recovered-count").textContent =
+    `${run.recoveredCount.toLocaleString()} (${percentage}%)`;
+
+  document.getElementById("ciphertext-count").textContent =
+    run.distinctCiphertexts.toLocaleString();
+
+  document.getElementById("collision-summary").textContent =
+    run.collisionGroups === 0
+      ? "No collisions were observed among the tested messages."
+      : `${run.collisionGroups.toLocaleString()} distinct ciphertext values were each produced by more than one tested message.`;
+
+  const collisionBody = document.getElementById("collision-rows");
+  collisionBody.replaceChildren();
+
+  for (const example of run.collisionExamples) {
+    const row = document.createElement("tr");
+    addCell(row, example.firstMessage);
+    addCell(row, example.otherMessage);
+    addCell(row, example.ciphertext);
+    collisionBody.appendChild(row);
+  }
+
+  document.getElementById("collision-table-wrap").hidden =
+    run.collisionExamples.length === 0;
+
+  renderPage();
+  resultsSection.hidden = false;
+}
+
+function renderPage() {
+  if (!currentRun) return;
+
+  const rows = currentRun.rows;
+  const start = currentPage * PAGE_SIZE;
+  const end = Math.min(start + PAGE_SIZE, rows.length);
+  const body = document.getElementById("message-rows");
+  const fragment = document.createDocumentFragment();
+
+  for (let index = start; index < end; index++) {
+    const result = rows[index];
+    const row = document.createElement("tr");
+
+    addCell(row, result.message);
+    addCell(row, result.ciphertext);
+    addCell(row, result.recovered);
+    addCell(
+      row,
+      result.matches ? "Yes" : "No",
+      result.matches ? "match" : "mismatch"
+    );
+
+    fragment.appendChild(row);
+  }
+
+  body.replaceChildren(fragment);
+
+  document.getElementById("page-description").textContent =
+    `Rows ${start + 1}–${end} of ${rows.length.toLocaleString()}`;
+
+  document.getElementById("previous-page").disabled = currentPage === 0;
+  document.getElementById("next-page").disabled = end >= rows.length;
+}
+
+// ---------- CSV export ----------
+
+/*
+ * Quote CSV fields and escape any internal quotation marks.
+ * Prefix potentially executable spreadsheet text with an apostrophe.
+ * This matters for the user-entered experiment label.
+ */
+function csvCell(value) {
+  let text = String(value);
+
+  if (/^[\s]*[=+\-@]/.test(text)) {
+    text = "'" + text;
+  }
+
+  return '"' + text.replace(/"/g, '""') + '"';
+}
+
+function downloadCsv() {
+  if (!currentRun) return;
+
+  const run = currentRun;
+  const config = run.config;
+
+  const headers = [
+    "RunId", "StartedUTC", "ExperimentLabel", "TestMode",
+    "p", "q", "n", "Totient", "e", "d",
+    "OriginalMessage", "Ciphertext", "RecoveredMessage", "MatchesOriginal"
+  ];
+
+  const lines = [headers.map(csvCell).join(",")];
+
+  for (const row of run.rows) {
+    const values = [
+      run.id,
+      run.timestamp,
+      config.label,
+      config.mode,
+      config.p,
+      config.q,
+      config.n,
+      config.totient,
+      config.e,
+      config.d,
+      row.message,
+      row.ciphertext,
+      row.recovered,
+      row.matches ? "Yes" : "No"
+    ];
+
+    lines.push(values.map(csvCell).join(","));
+  }
+
+  // The BOM helps spreadsheet applications recognise UTF-8 text.
+  const blob = new Blob(["\uFEFF" + lines.join("\r\n")], {
+    type: "text/csv;charset=utf-8;"
+  });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = `rsa-${run.id}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  // Allow the browser time to begin the download before releasing the URL.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ---------- Interface events ----------
+
+function updateMessageInput() {
+  const testingAll = modeInput.value === "all";
+  document.getElementById("selected-messages-field").hidden = testingAll;
+  document.getElementById("messages").disabled = testingAll;
+}
+
+form.addEventListener("submit", runExperiment);
+modeInput.addEventListener("change", updateMessageInput);
+
+document.getElementById("previous-page").addEventListener("click", () => {
+  if (currentRun && currentPage > 0) {
+    currentPage--;
+    renderPage();
+  }
+});
+
+document.getElementById("next-page").addEventListener("click", () => {
+  if (currentRun && (currentPage + 1) * PAGE_SIZE < currentRun.rows.length) {
+    currentPage++;
+    renderPage();
+  }
+});
+
+document.getElementById("download-csv").addEventListener("click", downloadCsv);
+
+updateMessageInput();
+</script>
+</body>
+</html>
